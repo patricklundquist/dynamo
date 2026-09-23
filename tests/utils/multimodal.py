@@ -487,6 +487,48 @@ def make_custom_encoder_payload() -> ChatPayload:
     )
 
 
+def make_remote_custom_encoder_payload() -> ChatPayload:
+    """Semantic check for the remote CustomEncoder topology.
+
+    Same phrase-splice contract as :func:`make_custom_encoder_payload`, but the
+    encoder runs in the orchestrator worker and the embeddings reach the stock
+    aggregated generator over the request plane. ``expected_log`` therefore
+    asserts the orchestrator's own encoder line rather than the decoder-side
+    ``Loaded CustomEncoder``, which only the in-process topology emits.
+    """
+    return chat_payload(
+        [
+            {
+                "type": "text",
+                "text": "Based on The Hitchhiker's Guide to the Galaxy, The Answer to",
+            },
+            {"type": "image_url", "image_url": {"url": MULTIMODAL_IMG_URL}},
+            {"type": "text", "text": " is?"},
+        ],
+        repeat_count=1,
+        expected_response=["42"],
+        expected_log=[r"HitchhikersVisionEncoder\] ready"],
+        max_tokens=32,
+        temperature=0.0,
+    )
+
+
+def make_remote_custom_encoder_text_only_payload() -> ChatPayload:
+    """Text-only turn against the remote CustomEncoder topology.
+
+    The orchestrator must forward a request that carries no media straight to
+    the generator. Asserting a served answer here keeps a conversation's
+    non-image turns from regressing back into a request-level rejection.
+    """
+    return chat_payload(
+        "Based on The Hitchhiker's Guide to the Galaxy, The Answer to is?",
+        repeat_count=1,
+        expected_response=["42", "answer", "life", "Adams"],
+        max_tokens=32,
+        temperature=0.0,
+    )
+
+
 def make_qwen35_custom_encoder_payload() -> ChatPayload:
     """Single-image semantic check for the native Qwen3.5 custom encoder."""
     return Base64LazyChatPayload(
